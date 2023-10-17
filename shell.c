@@ -17,13 +17,17 @@ int main(void)
 		fflush(stdout);
 
 		read_line();
+		token = strtok(line, " ");
 
-		char *token = strtok(line, " ");
+		if (strcmp(line, "exit") == 0)
+		{
+			printf("Exiting shell!!!");
+			exit(0);
+        	}
 
 		int status;
-		char *args[] = {token, NULL};
+		char *args[2] = {token, NULL};
 		pid_t pid;
-
 		pid = fork();
 
 		if (pid == -1)
@@ -34,11 +38,12 @@ int main(void)
 		}
 		if (pid == 0)
 		{
-			execve(token, args, NULL);
+			execve(line, args, NULL);
 			perror("");
 			free(line);
 			exit(42);
 		}
+
 		else
 		{
 			wait(&status);

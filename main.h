@@ -15,6 +15,7 @@ int status;
 pid_t pid;
 char *line = NULL;
 size_t len;
+char *token;
 
 int read_line(void)
 {
