@@ -1,88 +1,59 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <sys/wait.h>
+#include <unistd.h>
+#include <string.h>
 
-#define MAX_INPUT_LENGTH 1024
+#define MAX_CMD_LEN 128
+#define MAX_ARGS 10
 
-extern char **environ;
-
-void handleExitCommand() {
-    printf("Exiting shell!!!\n");
-    exit(0);
-}
-
-void handleEnvCommand() {
-    char **env = environ;
-    while (*env != NULL) {
-        printf("%s\n", *env);
-        env++;
+void parse_cmd(char* cmd, char** args) {
+    int i = 0;
+    args[i] = strtok(cmd, " ");
+    while (args[i] != NULL) {
+        i++;
+        args[i] = strtok(NULL, " ");
     }
 }
 
-int main(void) {
-    char *line = NULL;
-    size_t line_length = 0;
+int main() {
+    char cmd[MAX_CMD_LEN];
+    char* args[MAX_ARGS];
+    char* path = getenv("PATH");
+    int status;
 
     while (1) {
-	char *token;
-        printf("$Shell> ");
-        fflush(stdout);
+	pid_t pid;
+        printf("$ ");
+        fgets(cmd, MAX_CMD_LEN, stdin);
+	if (fgets(cmd, MAX_CMD_LEN, stdin) == NULL)
+	{
+		exit(0);
+	}
+        cmd[strlen(cmd) - 1] = '\0';
 
-        if (getline(&line, &line_length, stdin) == -1) {
-            perror("Error reading input");
-            exit(1);
-        }
-
-        token = strtok(line, " \n");
-
-        if (token == NULL) {
+        if (strcmp(cmd, "exit") == 0) {
+            exit(0);
+        } else if (strcmp(cmd, "env") == 0) {
+            printf("%s\n", path);
             continue;
         }
 
-        if (strcmp(token, "exit") == 0) {
-            handleExitCommand();
-        } else if (strcmp(token, "env") == 0) {
-            handleEnvCommand();
+        parse_cmd(cmd, args);
+
+        pid = fork();
+        if (pid == 0) {
+            execvp(args[0], args);
+            perror("Error");
+            exit(1);
+        } else if (pid > 0) {
+            wait(&status);
         } else {
-            int status;
-            char *args[MAX_INPUT_LENGTH];
-            int arg_count = 0;
-            pid_t pid;
-
-            while (token != NULL) {
-                args[arg_count] = token;
-                token = strtok(NULL, " \n");
-                arg_count++;
-            }
-
-            args[arg_count] = NULL;
-
-            pid = fork();
-
-            if (pid == -1) {
-                perror("Error creating process");
-                free(line);
-                exit(48);
-            }
-
-            if (pid == 0) {
-                /*Attempt to execute the command from the PATH*/
-                execvp(args[0], args);
-
-                /*If execvp fails, the command does not exist*/
-                perror("Command not found");
-                free(line);
-                exit(42);
-            } else {
-                wait(&status);
-            }
+            perror("Error");
+            exit(1);
         }
     }
 
-    free(line);
     return 0;
 }
 
